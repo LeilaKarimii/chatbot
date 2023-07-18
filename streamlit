@@ -1,0 +1,60 @@
+import streamlit as st
+import pandas as pd
+
+# Load the data
+url = "https://drive.google.com/file/d/1vThDKa-hBlMNpwJzwnMJd7Qu1wom76sa/view?usp=sharing"
+path = 'https://drive.google.com/uc?export=download&id=' + url.split('/')[-2]
+movies = pd.read_csv(path)
+
+url = "https://drive.google.com/file/d/1xBaxnewS6tCu3oxyiqF4jsU4ehsM9Ee8/view?usp=sharing"
+path = 'https://drive.google.com/uc?export=download&id=' + url.split('/')[-2]
+links = pd.read_csv(path)
+
+url = "https://drive.google.com/file/d/1YgfUfbtBTrn5ZDoR13KtLLn7y6MaHuDY/view?usp=sharing"
+path = 'https://drive.google.com/uc?export=download&id=' + url.split('/')[-2]
+ratings = pd.read_csv(path)
+
+url = "https://drive.google.com/file/d/1TMbrFoFSKDsZf1JvnpgfeSWbt-CJ7AYW/view?usp=sharing"
+path = 'https://drive.google.com/uc?export=download&id=' + url.split('/')[-2]
+tags = pd.read_csv(path)
+
+# Calculate the overall rating
+rating = pd.DataFrame(ratings.groupby('movieId')['rating'].mean())
+rating['rating_count'] = ratings.groupby('movieId')['rating'].count()
+rating['overall_rating'] = (rating['rating'] / rating['rating'].max() + rating['rating_count'] / rating['rating_count'].max()) / 2
+
+# Create pivot table
+pivot_table = ratings.pivot_table(index='userId', columns='movieId', values='rating', fill_value=0)
+
+# Calculate item-item similarity matrix using correlation
+item_similarity = pivot_table.corr(method='pearson', min_periods=1)
+
+# Given the similarity matrix and a movieId, return the related recommendations
+def get_item_based_recommendations(movie_id, n):
+    similar_movies = item_similarity[movie_id].sort_values(ascending=False).head(n)
+    recommended_movies = movies[movies['movieId'].isin(similar_movies.index)]
+    return recommended_movies
+
+# Define the chatbot function
+def movie_chatbot(movie_id):
+    recommendations = get_item_based_recommendations(movie_id, 5)
+    return recommendations
+
+# Streamlit app
+def main():
+    st.title("Movie Recommendation Chatbot")
+    st.write("Hi! I'm your personal movie recommender. Let me recommend you some movies.")
+
+    # User input
+    movie_id = st.text_input("Please enter a movie ID:")
+    if st.button("Recommend"):
+        try:
+            movie_id = int(movie_id)
+            recommendations = movie_chatbot(movie_id)
+            st.write(f"Recommendations for movie ID {movie_id}:")
+            st.dataframe(recommendations)
+        except ValueError:
+            st.error("Invalid input. Please enter a valid movie ID.")
+
+if __name__ == "__main__":
+    main()
